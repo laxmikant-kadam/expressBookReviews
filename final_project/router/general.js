@@ -1,9 +1,11 @@
-
 const express = require('express');
-const books = require('./booksdb.js');
-const { isValid, users } = require('./auth_users.js');
+const axios = require('axios');
+const { users } = require('./auth_users.js');
 
 const public_users = express.Router();
+
+// Internal data service consumed by the Axios requests below
+const API_BASE = `http://localhost:${process.env.PORT || 5000}/data`;
 
 // Task 7: Register a new user
 public_users.post('/register', (req, res) => {
@@ -28,61 +30,83 @@ public_users.post('/register', (req, res) => {
   });
 });
 
-// Task 2: Get all books
-public_users.get('/', (req, res) => {
-  return res.status(200).json(books);
-});
-
-// Task 3: Get book details by ISBN
-public_users.get('/isbn/:isbn', (req, res) => {
-  const isbn = req.params.isbn;
-  const book = books[isbn];
-
-  if (!book) {
-    return res.status(404).json({
-      message: 'Book not found.'
+// Task 11: Get all books using async/await with Axios
+public_users.get('/', async (req, res) => {
+  try {
+    const response = await axios.get(`${API_BASE}/books`);
+    return res.status(200).json(response.data);
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Unable to retrieve books.',
+      error: error.message
     });
   }
-
-  return res.status(200).json(book);
 });
 
-// Task 4: Get books by author
-public_users.get('/author/:author', (req, res) => {
-  const author = req.params.author.toLowerCase();
+// Task 12: Get book details by ISBN using async/await with Axios
+public_users.get('/isbn/:isbn', async (req, res) => {
+  try {
+    const response = await axios.get(`${API_BASE}/books/${req.params.isbn}`);
+    return res.status(200).json(response.data);
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return res.status(404).json({
+        message: 'Book not found.'
+      });
+    }
 
-  const matchingBooks = Object.values(books).filter(book =>
-    book.author &&
-    book.author.toLowerCase().includes(author)
-  );
-
-  return res.status(200).json(matchingBooks);
-});
-
-// Task 5: Get books by title
-public_users.get('/title/:title', (req, res) => {
-  const title = req.params.title.toLowerCase();
-
-  const matchingBooks = Object.values(books).filter(book =>
-    book.title &&
-    book.title.toLowerCase().includes(title)
-  );
-
-  return res.status(200).json(matchingBooks);
-});
-
-// Task 6: Get reviews for a specific book
-public_users.get('/review/:isbn', (req, res) => {
-  const isbn = req.params.isbn;
-  const book = books[isbn];
-
-  if (!book) {
-    return res.status(404).json({
-      message: 'Book not found.'
+    return res.status(500).json({
+      message: 'Unable to retrieve the book.',
+      error: error.message
     });
   }
+});
 
-  return res.status(200).json(book.reviews || {});
+// Task 13: Get books by author using async/await with Axios
+public_users.get('/author/:author', async (req, res) => {
+  try {
+    const author = encodeURIComponent(req.params.author);
+    const response = await axios.get(`${API_BASE}/author/${author}`);
+    return res.status(200).json(response.data);
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Unable to retrieve books by author.',
+      error: error.message
+    });
+  }
+});
+
+// Task 14: Get books by title using async/await with Axios
+public_users.get('/title/:title', async (req, res) => {
+  try {
+    const title = encodeURIComponent(req.params.title);
+    const response = await axios.get(`${API_BASE}/title/${title}`);
+    return res.status(200).json(response.data);
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Unable to retrieve books by title.',
+      error: error.message
+    });
+  }
+});
+
+// Task 6: Get reviews for a specific book using async/await with Axios
+public_users.get('/review/:isbn', async (req, res) => {
+  try {
+    const response = await axios.get(`${API_BASE}/books/${req.params.isbn}`);
+    return res.status(200).json(response.data.reviews || {});
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return res.status(404).json({
+        message: 'Book not found.'
+      });
+    }
+
+    return res.status(500).json({
+      message: 'Unable to retrieve the reviews.',
+      error: error.message
+    });
+  }
 });
 
 module.exports.general = public_users;
